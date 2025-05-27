@@ -1,0 +1,13 @@
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://git.gmoker.com/icing/flutter:sdk36
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piggy-bank-${{ github.ref_name }}-${{ github.run_id }}.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
