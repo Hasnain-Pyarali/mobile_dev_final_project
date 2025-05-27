@@ -7,6 +7,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker://git.gmoker.com/icing/flutter:sdk36
+        with:
+          entrypoint: flutter
+          args: build apk
       - uses: actions/upload-artifact@v4
         with:
           name: piggy-bank-${{ github.ref_name }}-${{ github.run_id }}.apk

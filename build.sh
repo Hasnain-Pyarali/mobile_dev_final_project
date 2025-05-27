@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-IMG=git.gmoker.com/icing/flutter:main
+IMG=git.gmoker.com/icing/flutter:sdk36
 
 docker volume create --ignore flutter_cache
 set -x
@@ -8,5 +8,4 @@ set -x
 docker run --rm \
     -v "flutter_cache:/root/" \
     -v "$PWD:/app/" \
-    "$IMG" \
-    build apk -v --release
+    "$IMG"
