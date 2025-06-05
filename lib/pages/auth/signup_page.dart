@@ -66,7 +66,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.account_balance_wallet,
+                    Icons.savings,
                     size: 80,
                     color: Theme.of(context).colorScheme.primary,
                   ),

@@ -1,252 +1,631 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:finance_tracker/services/firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class ExpenseIncomeScreen extends StatelessWidget {
+class ExpenseIncomeScreen extends StatefulWidget {
   const ExpenseIncomeScreen({super.key});
   @override
+  State<ExpenseIncomeScreen> createState() => _ExpenseIncomeScreenState();
+}
+
+class _ExpenseIncomeScreenState extends State<ExpenseIncomeScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
+  String? _preferredCurrency = 'USD';
+  bool _isConverting = false;
+  var listCurrency = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'INR', 'CNY'];
+  var listCategory = ['Food', 'Transportation', 'Housing', 'Entertainment', 'Utilities', 'Healthcare', 'Other'];
+  Future<void> _loadPreferredCurrency() async {
+    final currency = await _firestoreService.getPreferredCurrency();
+    setState(() {
+      _preferredCurrency = currency;
+    });
+  }
+
+  // VARIABLE FORM
+  final formkeySave = GlobalKey<FormState>();
+  final formkeyUpdate = GlobalKey<FormState>();
+  String type = 'expense';
+  String category = 'Food';
+  // String currency = _preferredCurrency;
+  String currency = 'USD';
+  DateTime datenow = DateTime.now();
+  TextEditingController controllerAmount = TextEditingController();
+  TextEditingController controllerDescription = TextEditingController();
+
+  // DATE PICKER
+  void changeDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: datenow,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (pickedDate != null) {
+      setState(() {
+        datenow = pickedDate;
+      });
+    }
+  }
+
+  // onChangeCategoryFormSave
+  void onChangeCategory(bool isNew) {
+    if (type == 'expense') {
+      setState(() {
+        listCategory.clear();
+        listCategory = ['Food', 'Transportation', 'Housing', 'Entertainment', 'Utilities', 'Healthcare', 'Other'];
+        if (isNew) {
+          category = 'Food';
+        }
+      });
+    } else if (type == 'income') {
+      listCategory.clear();
+      listCategory = ['Salary', 'Investment', 'Gift', 'Refund', 'Other'];
+      if (isNew) {
+        category = 'Salary';
+      }
+    }
+  }
+
+  // SAVE STTATE
+  void saveFinance() async {
+    print("Save button pressed");
+    if (formkeySave.currentState!.validate()) {
+      print("Form validated");
+      // print("Form saved - Type: $type, Amount: ${controllerAmount.text}, Currency: $currency, Category: $category, Description: $description");
+      try {
+        print("Attempting to add transaction...");
+        await _firestoreService.addTransaction(
+          type: type,
+          amount: double.parse(controllerAmount.text),
+          currency: currency,
+          category: category,
+          description: controllerDescription.text,
+          date: datenow,
+        );
+        print("Transaction added successfully");
+        if (context.mounted) Navigator.pop(context);
+      } catch (e) {
+        print("Error adding transaction: $e");
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        }
+      }
+    } else {
+      print("Form validation failed");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: Form Validation Failed')));
+    }
+  }
+
+  // UPDATE STATE
+  void updateFinance(id) async {
+    if (formkeyUpdate.currentState!.validate()) {
+      formkeyUpdate.currentState!.save();
+      await _firestoreService.updateTransaction(
+        id: id,
+        type: type,
+        amount: double.parse(controllerAmount.text),
+        currency: currency,
+        category: category,
+        description: controllerDescription.text,
+        date: datenow,
+      );
+      if (context.mounted) Navigator.pop(context);
+    }
+  }
+
+  // DELETE STATE
+  void deleteFinance(id) async {
+    await _firestoreService.deleteTransaction(id);
+    if (context.mounted) Navigator.pop(context);
+  }
+
+  // CLEAR STATE / INITIAL STATE
+  void initialState() {
+    setState(() {
+      type = 'expense';
+      currency = 'USD';
+      datenow = DateTime.now();
+      controllerAmount.clear();
+      controllerDescription.clear();
+      listCategory = ['Food', 'Transportation', 'Housing', 'Entertainment', 'Utilities', 'Healthcare', 'Other'];
+      category = 'Food';
+    });
+  }
+
+  Future<void> _convertAllTransactions() async {
+    setState(() {
+      _isConverting = true;
+    });
+    try {
+      await Future.delayed(const Duration(milliseconds: 500));
+    } finally {
+      setState(() {
+        _isConverting = false;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferredCurrency();
+    final user = FirebaseAuth.instance.currentUser;
+    print("Current user: ${user?.uid ?? 'Not authenticated'}");
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> transactions = [
-      {
-        'id': '1',
-        'type': 'expense',
-        'amount': 25.99,
-        'category': 'Food',
-        'date': DateTime.now().subtract(const Duration(days: 1)),
-        'description': 'Lunch at restaurant',
-      },
-      {
-        'id': '2',
-        'type': 'income',
-        'amount': 1200.00,
-        'category': 'Salary',
-        'date': DateTime.now().subtract(const Duration(days: 5)),
-        'description': 'Monthly salary',
-      },
-      {
-        'id': '3',
-        'type': 'expense',
-        'amount': 35.50,
-        'category': 'Transportation',
-        'date': DateTime.now().subtract(const Duration(days: 2)),
-        'description': 'Uber ride',
-      },
-      {
-        'id': '4',
-        'type': 'expense',
-        'amount': 120.75,
-        'category': 'Shopping',
-        'date': DateTime.now().subtract(const Duration(days: 3)),
-        'description': 'Clothes shopping',
-      },
-      {
-        'id': '5',
-        'type': 'income',
-        'amount': 50.00,
-        'category': 'Refund',
-        'date': DateTime.now().subtract(const Duration(days: 4)),
-        'description': 'Return item refund',
-      },
-    ];
-    final double totalIncome = transactions
-        .where((transaction) => transaction['type'] == 'income')
-        .fold(
-          0.0,
-          (sum, transaction) => sum + (transaction['amount'] as double),
-        );
-    final double totalExpense = transactions
-        .where((transaction) => transaction['type'] == 'expense')
-        .fold(
-          0.0,
-          (sum, transaction) => sum + (transaction['amount'] as double),
-        );
-    final double balance = totalIncome - totalExpense;
     return Scaffold(
       body: Column(
         children: [
-          Card(
-            margin: const EdgeInsets.all(16),
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Current Balance',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.currency_exchange),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Currency converter will be implemented later',
-                              ),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        tooltip: 'Convert Currency',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '\$${balance.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: balance >= 0 ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _SummaryItem(
-                        label: 'Income',
-                        amount: totalIncome,
-                        color: Colors.green,
-                        icon: Icons.arrow_upward,
-                      ),
-                      _SummaryItem(
-                        label: 'Expenses',
-                        amount: totalExpense,
-                        color: Colors.red,
-                        icon: Icons.arrow_downward,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Recent Transactions',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                TextButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'View all transactions will be implemented later',
-                        ),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  child: const Text('See All'),
-                ),
-              ],
-            ),
-          ),
+          _buildCurrencySelector(),
           Expanded(
-            child: ListView.builder(
-              itemCount: transactions.length,
-              itemBuilder: (context, index) {
-                final transaction = transactions[index];
-                return _TransactionItem(transaction: transaction);
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestoreService.getTransactions(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No transactions yet. Add one!'));
+                }
+                return ListView.builder(
+                  itemCount: snapshot.data!.docs.length,
+                  itemBuilder: (context, index) {
+                    final doc = snapshot.data!.docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    return _buildTransactionItem(doc.id, data);
+                  },
+                );
               },
             ),
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(onPressed: () => _showAddTransactionDialog(context), child: const Icon(Icons.add)),
     );
   }
-}
 
-class _SummaryItem extends StatelessWidget {
-  final String label;
-  final double amount;
-  final Color color;
-  final IconData icon;
-  const _SummaryItem({
-    required this.label,
-    required this.amount,
-    required this.color,
-    required this.icon,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
+  Widget _buildCurrencySelector() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          const Text('Preferred Currency:'),
+          const SizedBox(width: 8),
+          DropdownButton<String>(
+            value: _preferredCurrency,
+            items:
+                listCurrency.map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value));
+                }).toList(),
+            onChanged: (String? newValue) async {
+              if (newValue != null) {
+                setState(() {
+                  _preferredCurrency = newValue;
+                });
+                await _firestoreService.updatePreferredCurrency(newValue);
+              }
+            },
+          ),
+          const Spacer(),
+          _isConverting
+              ? const CircularProgressIndicator()
+              : TextButton.icon(onPressed: _convertAllTransactions, icon: const Icon(Icons.currency_exchange), label: const Text('Convert All')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(String id, Map<String, dynamic> data) {
+    final bool isExpense = data['type'] == 'expense';
+    final double amount = data['amount'] as double;
+    final String currency = data['currency'] as String;
+    final String category = data['category'] as String;
+    final String description = data['description'] as String;
+    final Timestamp timestamp = data['date'] as Timestamp;
+    final DateTime date = timestamp.toDate();
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ListTile(
+        leading: CircleAvatar(backgroundColor: isExpense ? Colors.red : Colors.green, child: Icon(isExpense ? Icons.remove : Icons.add, color: Colors.white)),
+        title: Text(description, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('${DateFormat('MMM dd, yyyy').format(date)} • $category'),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 4),
             Text(
-              label,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              '${isExpense ? '-' : '+'} ${amount.toStringAsFixed(2)} $currency',
+              style: TextStyle(fontWeight: FontWeight.bold, color: isExpense ? Colors.red : Colors.green),
             ),
+            if (currency != _preferredCurrency)
+              FutureBuilder<double>(
+                future: _firestoreService.convertCurrency(amount, currency, _preferredCurrency!),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Text('Converting...', style: TextStyle(fontSize: 12));
+                  }
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const Text('Conversion error', style: TextStyle(fontSize: 12));
+                  }
+                  return Text(
+                    '(${isExpense ? '-' : '+'} ${snapshot.data!.toStringAsFixed(2)} $_preferredCurrency)',
+                    style: TextStyle(fontSize: 12, color: isExpense ? Colors.red[300] : Colors.green[300]),
+                  );
+                },
+              ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          '\$${amount.toStringAsFixed(2)}',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ],
+        onTap: () => _showTransactionOptions(context, id, data),
+      ),
     );
   }
-}
 
-class _TransactionItem extends StatelessWidget {
-  final Map<String, dynamic> transaction;
-  const _TransactionItem({required this.transaction});
-  @override
-  Widget build(BuildContext context) {
-    final bool isExpense = transaction['type'] == 'expense';
-    final DateFormat formatter = DateFormat('MMM dd, yyyy');
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              isExpense ? Colors.red.shade100 : Colors.green.shade100,
-          child: Icon(
-            isExpense ? Icons.remove : Icons.add,
-            color: isExpense ? Colors.red : Colors.green,
+  void _showTransactionOptions(BuildContext context, String id, Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Transaction'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditTransactionDialog(context, id, data);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Transaction', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmation(context, id);
+                },
+              ),
+            ],
           ),
-        ),
-        title: Text(
-          transaction['category'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          '${formatter.format(transaction['date'])} • ${transaction['description']}',
-        ),
-        trailing: Text(
-          '${isExpense ? '-' : '+'}\$${transaction['amount'].toStringAsFixed(2)}',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isExpense ? Colors.red : Colors.green,
-          ),
-        ),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transaction details will be implemented later'),
-              duration: Duration(seconds: 2),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, String id) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Transaction'),
+          content: const Text('Are you sure you want to delete this transaction?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+            TextButton(
+              onPressed: () {
+                deleteFinance(id);
+              },
+              child: const Text('DELETE', style: TextStyle(color: Colors.red)),
             ),
-          );
-        },
-      ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAddTransactionDialog(BuildContext context) {
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You must be logged in to add transactions')));
+      return;
+    }
+    // final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
+              child: Form(
+                key: formkeySave,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Add Transaction', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('Expense'),
+                            value: 'expense',
+                            groupValue: type,
+                            onChanged: (value) {
+                              setState(() {
+                                type = value!;
+                                onChangeCategory(true);
+                              });
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('Income'),
+                            value: 'income',
+                            groupValue: type,
+                            onChanged: (value) {
+                              setState(() {
+                                type = value!;
+                                onChangeCategory(true);
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: controllerAmount,
+                            decoration: const InputDecoration(labelText: 'Amount', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter an amount';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Please enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(labelText: 'Currency', border: OutlineInputBorder()),
+                            value: currency,
+                            items:
+                                listCurrency.map<DropdownMenuItem<String>>((String value) {
+                                  return DropdownMenuItem<String>(value: value, child: Text(value));
+                                }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                currency = newValue!;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                      value: category,
+                      items:
+                          listCategory.map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(value: value, child: Text(value));
+                          }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          category = newValue!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: controllerDescription,
+                      decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a description';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: changeDate,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: 'Date', border: OutlineInputBorder()),
+                        child: Text(DateFormat('MMM dd, yyyy').format(datenow)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            initialState();
+                          },
+                          child: const Text('CANCEL'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(onPressed: saveFinance, child: const Text('SAVE')),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditTransactionDialog(BuildContext context, String id, Map<String, dynamic> data) {
+    setState(() {
+      type = data['type'];
+      category = data['category'];
+      currency = data['currency'];
+      datenow = (data['date'] as Timestamp).toDate();
+      controllerAmount.text = data['amount'].toString();
+      controllerDescription.text = data['description'];
+      onChangeCategory(false);
+    });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
+              child: Form(
+                key: formkeyUpdate,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Edit Transaction', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('Expense'),
+                            value: 'expense',
+                            groupValue: type,
+                            onChanged: (value) {
+                              setState(() {
+                                type = value!;
+                                onChangeCategory(true);
+                              });
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text('Income'),
+                            value: 'income',
+                            groupValue: type,
+                            onChanged: (value) {
+                              setState(() {
+                                type = value!;
+                                onChangeCategory(true);
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: controllerAmount,
+                            decoration: const InputDecoration(labelText: 'Amount', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter an amount';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Please enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1,
+                          child: DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(labelText: 'Currency', border: OutlineInputBorder()),
+                            value: currency,
+                            items:
+                                listCurrency.map<DropdownMenuItem<String>>((String value) {
+                                  return DropdownMenuItem<String>(value: value, child: Text(value));
+                                }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                currency = newValue!;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                      value: category,
+                      items:
+                          listCategory.map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(value: value, child: Text(value));
+                          }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          category = newValue!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: controllerDescription,
+                      decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a description';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: changeDate,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: 'Date', border: OutlineInputBorder()),
+                        child: Text(DateFormat('MMM dd, yyyy').format(datenow)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            initialState();
+                          },
+                          child: const Text('CANCEL'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            updateFinance(id);
+                          },
+                          child: const Text('UPDATE'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

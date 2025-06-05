@@ -13,12 +13,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  final List<Widget> _screens = [
-    const ExpenseIncomeScreen(),
-    const BudgetGoalsScreen(),
-    const SavingsScreen(),
-    const DebtTrackerScreen(),
-  ];
+  final List<Widget> _screens = [const ExpenseIncomeScreen(), const BudgetGoalsScreen(), const SavingsScreen(), const DebtTrackerScreen()];
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -49,25 +44,12 @@ class _HomePageState extends State<HomePage> {
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet),
-            label: 'Transactions',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.track_changes),
-            label: 'Budget',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Transactions'),
+          BottomNavigationBarItem(icon: Icon(Icons.track_changes), label: 'Budget'),
           BottomNavigationBarItem(icon: Icon(Icons.savings), label: 'Savings'),
           BottomNavigationBarItem(icon: Icon(Icons.money), label: 'Debts'),
         ],
       ),
-      floatingActionButton:
-          _selectedIndex == 0
-              ? FloatingActionButton(
-                onPressed: () {},
-                child: const Icon(Icons.add),
-              )
-              : null,
     );
   }
 }

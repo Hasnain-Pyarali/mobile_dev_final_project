@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -33,17 +34,21 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.message ?? 'An error occurred during sign in';
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'An unexpected error occurred';
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -60,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.account_balance_wallet,
+                    Icons.savings,
                     size: 80,
                     color: Theme.of(context).colorScheme.primary,
                   ),
