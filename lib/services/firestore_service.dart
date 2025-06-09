@@ -104,6 +104,75 @@ class FirestoreService {
         .snapshots();
   }
 
+  Future<void> addDebt({
+    required String type,
+    required double amount,
+    required String currency,
+    required String debtor,
+    required String description,
+    required DateTime date,
+  }) async {
+    print(
+      "addDebt called with: Type: $type, Amount: $amount, Currency: $currency, Debtor: $debtor, Description: $description",
+    );
+    if (currentUserId == null) {
+      print("Error: currentUserId is null");
+      return;
+    }
+    try {
+      print("Adding debt to Firestore...");
+      await _firestore.collection('debts').add({
+        'userId': currentUserId,
+        'type': type,
+        'amount': amount,
+        'currency': currency,
+        'debtor': debtor,
+        'description': description,
+        'date': Timestamp.fromDate(date),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print("Debt added to Firestore successfully");
+    } catch (e) {
+      print("Error in Firestore add operation: $e");
+      throw e;
+    }
+  }
+
+  Future<void> updateDebt({
+    required String id,
+    required String type,
+    required double amount,
+    required String currency,
+    required String debtor,
+    required String description,
+    required DateTime date,
+  }) async {
+    await _firestore.collection('debts').doc(id).update({
+      'type': type,
+      'amount': amount,
+      'currency': currency,
+      'debtor': debtor,
+      'description': description,
+      'date': Timestamp.fromDate(date),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteDebt(String id) async {
+    await _firestore.collection('debts').doc(id).delete();
+  }
+
+  Stream<QuerySnapshot> getDebts() {
+    if (currentUserId == null) {
+      return Stream.empty();
+    }
+    return _firestore
+        .collection('debts')
+        .where('userId', isEqualTo: currentUserId)
+        .snapshots();
+  }
+
   Future<Map<String, dynamic>> getExchangeRate(String baseCurrency) async {
     final url = '$_exchangeApiBaseUrl$_exchangeApiKey/latest/$baseCurrency';
     final response = await http.get(Uri.parse(url));
