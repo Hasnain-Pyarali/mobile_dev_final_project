@@ -39,6 +39,7 @@ dependencies:
   intl: ^0.20.2
   cloud_firestore: ^5.6.8
   http: ^1.4.0
+  flutter_native_splash: ^2.4.6
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +57,12 @@ flutter_icons:
   image_path: "icon.png"
   android: true
   ios: true
+
+flutter_native_splash:
+    android: true
+    ios: true
+    color: "#FFFFFF"
+    image: "assets/icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
